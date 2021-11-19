@@ -6,7 +6,7 @@ import cv2.aruco as aruco
 def find_homography(im1, im2):
 
     # find the keypoints and descriptors with SIFT
-    sift = cv2.SIFT_create(1000)
+    sift = cv2.SIFT_create(10000)
     kp1, des1 = sift.detectAndCompute(im1, None)
     kp2, des2 = sift.detectAndCompute(im2, None)
 
@@ -83,16 +83,22 @@ else:
 
 
 def detect_blobs(frame, low=60, high=90):
-    hsv = cv2.blur(frame, (7, 7))
-    hsv = cv2.cvtColor(hsv, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, (low, 0, 0), (high, 255, 255))
+    # hsv = cv2.blur(frame, (7, 7))
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    # multiple by a factor to change the saturation
+    hsv[..., 1] = hsv[..., 1]*15
+
+    # multiple by a factor of less than 1 to reduce the brightness
+    # hsv[..., 2] = hsv[..., 2]*0.6
+
+    mask = cv2.inRange(hsv, (low, 100, 50), (high, 255, 255))
     imask = mask > 0
     green = np.zeros_like(frame, np.uint8)
     green[imask] = frame[imask]
     green = cv2.cvtColor(green, cv2.COLOR_BGR2GRAY) * 10
     keypoints = detector.detect(green)
 
-    # return keypoints, green
+    return keypoints, mask
     return keypoints
 
 

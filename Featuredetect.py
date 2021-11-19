@@ -10,17 +10,22 @@ points = [[836, 667],
           [196, 111],
           [196, 680]]
 img2 = cv2.imread('opencv_frame_0.png', 0)  # trainImage
+stencil = np.zeros(img1.shape).astype(img1.dtype)
+cv2.fillPoly(stencil, [np.int32(points).reshape(-1, 1, 2)], (255, 255, 255))
+# img1 = cv2.bitwise_and(img1, stencil)
+
 
 d = pickle.load(open("prop.b", "rb"))
 mtx = d["mtx"]
 dist = d["dist"]
 newcameramtx = d["newcameramtx"]
 roi = d["roi"]
-sift = cv2.SIFT_create(1000)
+sift = cv2.SIFT_create(10000)
 kp1, des1 = sift.detectAndCompute(img1, None)
 # FLANN parameters
 FLANN_INDEX_KDTREE = 0
-index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+# index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+index_params = dict(algorithm=FLANN_INDEX_KDTREE)
 search_params = dict()   # or pass empty dictionary
 
 
