@@ -1,4 +1,3 @@
-from typing import no_type_check
 import cv2
 import numpy as np
 import pickle
@@ -7,10 +6,8 @@ import sys
 import time
 import dbscan
 
-# TODO: mask before feature detect
-# TODO: arena-space coordinates
 # TODO: tweak blob detection parameters
-
+# TODO: robot rotation
 
 lower = 0
 upper = 255
