@@ -3,6 +3,7 @@ import numpy as np
 import cv2.aruco as aruco
 
 
+# Finds a homography matrix that relates two input images
 def find_homography(im1, im2):
 
     # find the keypoints and descriptors with SIFT
@@ -22,7 +23,7 @@ def find_homography(im1, im2):
     # Need to draw only good matches, so create a mask
     matchesMask = [[0, 0] for i in matches]
     good_matches = []
-    # ratio test as per Lowe's paper
+    # Only select good matches
     for i, (m, n) in enumerate(matches):
         if m.distance < 0.7*n.distance:
             matchesMask[i] = [1, 0]
@@ -38,8 +39,9 @@ def find_homography(im1, im2):
     # Find homography matrix
     matrix, mask = cv2.findHomography(query_pts, train_pts, cv2.RANSAC, 5.0)
 
-    # matchesMask = mask.ravel().tolist()
     return matrix, mask
+
+# Increases the brightness of an image - unused
 
 
 def increase_brightness(img, value=30):
@@ -55,6 +57,7 @@ def increase_brightness(img, value=30):
     return img
 
 
+# Blob detector initialisation setup
 params = cv2.SimpleBlobDetector_Params()
 # Change thresholds
 params.minThreshold = 50
@@ -70,9 +73,6 @@ params.minCircularity = 0.3
 params.filterByConvexity = True
 params.minConvexity = 0.01
 
-# # Filter by Inertia
-# params.filterByInertia = True
-# params.minInertiaRatio = 0.01
 
 # Create a detector with the parameters
 ver = (cv2.__version__).split('.')
@@ -81,27 +81,31 @@ if int(ver[0]) < 3:
 else:
     detector = cv2.SimpleBlobDetector_create(params)
 
+# Detect green blobs (level of green set by low, high values)
+
 
 def detect_blobs(frame, low=60, high=90):
-    # hsv = cv2.blur(frame, (7, 7))
+
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    # multiple by a factor to change the saturation
+    # Increase saturation massively
     hsv[..., 1] = hsv[..., 1]*15
 
-    # multiple by a factor of less than 1 to reduce the brightness
-    # hsv[..., 2] = hsv[..., 2]*0.6
-
+    # Find values of acceptable green
     mask = cv2.inRange(hsv, (low, 100, 50), (high, 255, 240))
     imask = mask > 0
+
+    # Convert areas of green to a greyscale image
     green = np.zeros_like(frame, np.uint8)
     green[imask] = frame[imask]
     green = cv2.cvtColor(green, cv2.COLOR_BGR2GRAY) * 10
+    # Detect blobs
     keypoints = detector.detect(green)
 
+    # Return mask to allow debugging
     return keypoints, mask
-    return keypoints
 
 
+# Create a circular mask at some point in the image - unused
 def create_circular_mask(h, w, center=None, radius=None):
 
     if center is None:  # use the middle of the image
@@ -116,8 +120,11 @@ def create_circular_mask(h, w, center=None, radius=None):
     return mask
 
 
+# Aruco marker initialisation
 aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
 parameters = aruco.DetectorParameters_create()
+
+# Find markers
 
 
 def find_markers(im):
@@ -128,20 +135,11 @@ def find_markers(im):
 
 
 def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
     return vector / np.linalg.norm(vector)
 
 
+# Computes the angle between two vectors (for robot rotation)
 def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'::
-
-            >>> angle_between((1, 0, 0), (0, 1, 0))
-            1.5707963267948966
-            >>> angle_between((1, 0, 0), (1, 0, 0))
-            0.0
-            >>> angle_between((1, 0, 0), (-1, 0, 0))
-            3.141592653589793
-    """
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
