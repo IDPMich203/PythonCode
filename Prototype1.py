@@ -5,6 +5,7 @@ import utils
 import sys
 import time
 import dbscan
+from VideoCapture import VideoCapture
 
 # TODO: tweak blob detection parameters
 # TODO: robot rotation
@@ -38,6 +39,8 @@ points = [[836, 667],
           [190, 109],
           [199, 682]]
 
+redbluewhite = [[550, 177], [663, 276], [715, 112]]
+
 
 d = pickle.load(open("prop.b", "rb"))
 mtx = d["mtx"]
@@ -46,76 +49,26 @@ newcameramtx = d["newcameramtx"]
 roi = d["roi"]
 
 
-cap = cv2.VideoCapture("http://localhost:8081/stream/video.mjpeg")
+cap = cv2.VideoCapture(
+    "http://localhost:8081/stream/video.mjpeg")
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+print(cap.get(cv2.CAP_PROP_BUFFERSIZE))
 # cap = cv2.VideoCapture(0)
 
-cornerpoints = []
-i = 0
-while i < 100 and cap.isOpened():
-
-    # Press Q on keyboard to  exit
-    if cv2.waitKey(25) & 0xFF == ord('q'):
-        break
-
-    # Capture frame-by-frame
+ret = False
+while not ret:
     ret, frame = cap.read()
+# print(frame)
+im2 = cv2.undistort(frame, mtx, dist,
+                    None, newcameramtx)
+matrix, mask = utils.find_homography(im1, im2)
 
-    # # Check if frame is not empty
-    if not ret:
-        sys.exit()
+# stencil = np.zeros(im2.shape).astype(im2.dtype)
+dst = cv2.perspectiveTransform(
+    np.float32(points).reshape(-1, 1, 2), matrix)
 
-    im2 = cv2.undistort(frame, mtx, dist, None, newcameramtx)
-    stencil = np.zeros(im1.shape).astype(im1.dtype)
-    cv2.fillPoly(
-        stencil, [np.int32(points).reshape(-1, 1, 2)], (255, 255, 255))
-    im1 = cv2.bitwise_and(im1, stencil)
-
-    homomatrix, mask = utils.find_homography(im1, im2)
-
-
-# arenastencil = np.zeros(im2.shape).astype(im2.dtype)
-# searchstencil = np.zeros(im2.shape).astype(im2.dtype)
-    dst = cv2.perspectiveTransform(
-        np.float32(points).reshape(-1, 1, 2), homomatrix)
-
-    cornerpoints.append(dst)
-    cv2.imshow("frame", im2)
-    i += 1
-print(cornerpoints)
-bottom_right = []
-# bottom right, top right, top left, bottom left
-top_right = []
-top_left = []
-bottom_left = []
-for point in cornerpoints:
-    bottom_right.append(point[0][0])
-    top_right.append(point[1][0])
-    top_left.append(point[2][0])
-    bottom_left.append(point[3][0])
-
-conreners = []
-for point in [bottom_right, top_right, top_left, bottom_left]:
-    clusters = dbscan.dbscan(np.array(point).T, 20, 5)
-    clusters = list(filter(None, clusters))
-    if not clusters:
-        sys.exit()
-    # print(clusters)
-    most_common = max(set(clusters), key=clusters.count)
-    print(most_common)
-    length = 0
-    p = np.zeros((2))
-    for i, cluster in enumerate(clusters):
-        if cluster != most_common:
-            continue
-        p += point[i]
-        length += 1
-    p /= length
-    conreners.append(list(p))
-dst = np.float32(conreners)
-print(dst.shape)
-
-
-# sys.exit()
+redbluewhite = cv2.perspectiveTransform(
+    np.float32(redbluewhite).reshape(-1, 1, 2), matrix)
 
 maxHeight = 720
 maxWidth = 720
@@ -128,6 +81,8 @@ output_pts = np.float32([[0, 0],
 print(output_pts.shape)
 M = cv2.getPerspectiveTransform(dst, output_pts)
 
+corrected_rbw = cv2.perspectiveTransform(redbluewhite, M)
+print(corrected_rbw)
 
 # arenastencil = np.zeros((1080,1080)).astype(im2.dtype)
 searchstencil = np.zeros((maxHeight, maxWidth, 3)).astype(im2.dtype)
@@ -141,6 +96,8 @@ a = np.int32(
 cv2.fillPoly(searchstencil, [a], (255, 255, 255))
 
 # dst = cv2.perspectiveTransform(np.float32(
+
+
 #     [points[0], points[2], points[3]]).reshape(-1, 1, 2), homomatrix)
 
 
@@ -157,11 +114,20 @@ while cap.isOpened():
     # Press Q on keyboard to  exit
     if cv2.waitKey(25) & 0xFF == ord('q'):
         break
-    print(time.time() - curr)
+    # print(time.time() - curr)
     curr = time.time()
-
+    ret, frame = None, None
+    while (time.time() - curr) < 0.01:
+        curr = time.time()
+        ret, frame = cap.read()
+    # print("N frames, ", cap.get(cv2.CAP_PROP_POS_FRAMES))
     # Capture frame-by-frame
-    ret, frame = cap.read()
+
+    # while ret:
+    # cap.read()
+    # cap.read()
+    # ret, frame = cap.read()
+    # ret = False
 
     # Check if frame is not empty
     if not ret:
@@ -172,6 +138,7 @@ while cap.isOpened():
     # continue
     im2 = cv2.warpPerspective(
         orig, M, (maxWidth, maxHeight), flags=cv2.INTER_LINEAR)
+
     # cv2.imshow('frame', out)
     # continue
     # im2 = cv2.bitwise_and(orig, arenastencil)
@@ -182,7 +149,7 @@ while cap.isOpened():
     # green = cv2.cvtColor(green, cv2.COLOR_HSV2BGR)
     # cv2.imshow("frame", green)
     # continue
-    print(len(keypoints))
+    # print(len(keypoints))
 
     corners, ids = utils.find_markers(im2)
 
@@ -194,6 +161,10 @@ while cap.isOpened():
         center = center.astype(np.int32)
         centers.append(center)
 
+    if corners:
+        corner = corners[0][0][0]
+        # print(corner)
+        print(utils.angle_between(np.array([0, 1]), corner - center))
     for point in centers:
         cv2.circle(im2, (int(point[0]), int(point[1])), 10, (0, 255, 0), 3)
 
@@ -208,12 +179,9 @@ while cap.isOpened():
             to_go = True
     if to_go:
         clusters = dbscan.dbscan(points.T, 10, 5)
-        print(clusters)
         num_clusters = len(set(clusters))
-        print(num_clusters)
         if dbscan.NOISE in clusters:
             num_clusters -= 1
-        print(num_clusters)
 
         cluster_positions = np.zeros((num_clusters, 2))
         cluster_lengths = [0] * num_clusters
@@ -224,8 +192,6 @@ while cap.isOpened():
             cluster_positions[cluster - 1] += points[i]
             cluster_lengths[cluster - 1] += 1
 
-        print(cluster_lengths)
-
         dummy_positions = []
         for i, pos in enumerate(cluster_positions):
             if not cluster_lengths[i]:
@@ -235,7 +201,16 @@ while cap.isOpened():
             cv2.circle(im2, (int(pos[0]), int(
                 pos[1])), int(20), (0, 0, 255), 3)
 
-            # pos -= bottom_left
+    cv2.circle(im2, (int(corrected_rbw[0][0][0]), int(
+        corrected_rbw[0][0][1])), 30, (255, 0, 0), 4)
+
+    cv2.circle(im2, (int(corrected_rbw[1][0][0]), int(
+        corrected_rbw[1][0][1])), 30, (0, 0, 255), 4)
+
+    cv2.circle(im2, (int(corrected_rbw[2][0][0]), int(
+        corrected_rbw[2][0][1])), 30, (255, 255, 255), 4)
+
+    # pos -= bottom_left
 
     cv2.imshow('frame', im2)
 

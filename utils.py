@@ -91,7 +91,7 @@ def detect_blobs(frame, low=60, high=90):
     # multiple by a factor of less than 1 to reduce the brightness
     # hsv[..., 2] = hsv[..., 2]*0.6
 
-    mask = cv2.inRange(hsv, (low, 100, 50), (high, 255, 255))
+    mask = cv2.inRange(hsv, (low, 100, 50), (high, 255, 240))
     imask = mask > 0
     green = np.zeros_like(frame, np.uint8)
     green[imask] = frame[imask]
@@ -116,7 +116,7 @@ def create_circular_mask(h, w, center=None, radius=None):
     return mask
 
 
-aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
+aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
 parameters = aruco.DetectorParameters_create()
 
 
@@ -125,3 +125,23 @@ def find_markers(im):
         im, aruco_dict, parameters=parameters)
     # frame = aruco.drawDetectedMarkers(im, corners, ids)
     return corners, ids
+
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0, 0), (0, 1, 0))
+            1.5707963267948966
+            >>> angle_between((1, 0, 0), (1, 0, 0))
+            0.0
+            >>> angle_between((1, 0, 0), (-1, 0, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))

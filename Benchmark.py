@@ -8,6 +8,8 @@ while cap.isOpened():
 
     # Capture frame-by-frame
     ret, frame = cap.read()
+    if not ret:
+        continue
 
     cv2.imshow('frame', frame)
 
