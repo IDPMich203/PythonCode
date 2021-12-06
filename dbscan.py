@@ -4,6 +4,8 @@
 # Martin Ester, Hans-Peter Kriegel, Jörg Sander, Xiaowei Xu
 # dbscan: density based spatial clustering of applications with noise
 
+
+# This file is implementation of dbscan from https://github.com/choffstein/dbscan
 import numpy as np
 import math
 
